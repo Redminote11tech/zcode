@@ -1,0 +1,94 @@
+name: Update ZCode
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out packaging files
+        uses: actions/checkout@v4
+
+      - name: Find and verify the latest Linux release
+        id: release
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          import re
+          import urllib.request
+          from pathlib import Path
+
+          page_url = 'https://zcode.z.ai/en'
+          page = urllib.request.urlopen(page_url, timeout=30).read().decode('utf-8', 'replace')
+          pattern = re.compile(
+              r'(?:https://cdn-zcode\.z\.ai)?/zcode/electron/releases/'
+              r'(?P<version>[0-9]+\.[0-9]+\.[0-9]+)/linux-x64/'
+              r'(?P<name>ZCode-[^"\'<> ]+-linux-x64\.deb)'
+          )
+          releases = {
+              (match.group('version'), match.group('name'))
+              for match in pattern.finditer(page)
+              if match.group('name') == f"ZCode-{match.group('version')}-linux-x64.deb"
+          }
+          if not releases:
+              raise SystemExit('No Linux x86_64 ZCode download found on the official website')
+
+          def version_key(item):
+              return tuple(int(part) for part in item[0].split('.'))
+
+          version, name = max(releases, key=version_key)
+          url = f'https://cdn-zcode.z.ai/zcode/electron/releases/{version}/linux-x64/{name}'
+          digest = hashlib.sha256()
+          with urllib.request.urlopen(url, timeout=60) as response:
+              while chunk := response.read(1024 * 1024):
+                  digest.update(chunk)
+
+          pkgbuild = Path('PKGBUILD')
+          text = pkgbuild.read_text()
+          current_match = re.search(r'^pkgver=([^\n]+)$', text, re.MULTILINE)
+          current_hash_match = re.search(r"^sha256sums=\('([^']+)'\)$", text, re.MULTILINE)
+          current_rel_match = re.search(r'^pkgrel=([0-9]+)$', text, re.MULTILINE)
+          current = current_match.group(1)
+          current_hash = current_hash_match.group(1)
+          current_rel = int(current_rel_match.group(1))
+          release_key = version_key((version, name))
+          current_key = version_key((current, name))
+          if release_key < current_key or (release_key == current_key and digest.hexdigest() == current_hash):
+              print(f'Current release {current} is up to date')
+              raise SystemExit(0)
+
+          if release_key == current_key:
+              new_rel = current_rel + 1
+          else:
+              new_rel = 1
+          text = re.sub(r'^pkgver=[^\n]+$', f'pkgver={version}', text, count=1, flags=re.MULTILINE)
+          text = re.sub(r'^pkgrel=[^\n]+$', f'pkgrel={new_rel}', text, count=1, flags=re.MULTILINE)
+          text = re.sub(r"^sha256sums=\('[^']+'\)$", f"sha256sums=('{digest.hexdigest()}')", text, count=1, flags=re.MULTILINE)
+          pkgbuild.write_text(text)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'updated=true\nversion={version}\nurl={url}\n')
+          print(f'Updated ZCode to {version}-{new_rel}: {url}')
+          PY
+
+      - name: Open update pull request
+        if: steps.release.outputs.updated == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/zcode-update
+          delete-branch: true
+          commit-message: 'chore: update ZCode to ${{ steps.release.outputs.version }}'
+          title: 'chore: update ZCode to ${{ steps.release.outputs.version }}'
+          body: |
+            Automated update from the official ZCode download page.
+
+            Download: ${{ steps.release.outputs.url }}
+            The package build workflow will verify the checksum and build the Arch package.

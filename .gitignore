@@ -1,0 +1,15 @@
+# makepkg outputs and working directories
+*.pkg.tar.*
+src/
+pkg/
+
+# Vendor Debian payloads are downloaded and checksum-pinned by PKGBUILD
+*.deb
+data.tar.xz
+control.tar.xz
+debian-binary
+.deb-inspect/
+
+# Previously extracted vendor payload
+/opt/
+/usr/
