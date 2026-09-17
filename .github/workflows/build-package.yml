@@ -18,7 +18,10 @@ jobs:
       - name: Install build prerequisites
         shell: bash
         run: |
-          pacman -Syu --noconfirm --needed git ca-certificates
+          pacman -Syu --noconfirm --needed \
+            git ca-certificates \
+            gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core \
+            util-linux-libs libsecret
           useradd --create-home builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
