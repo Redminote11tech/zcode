@@ -75,6 +75,13 @@ jobs:
           text = re.sub(r'^pkgrel=[^\n]+$', f'pkgrel={new_rel}', text, count=1, flags=re.MULTILINE)
           text = re.sub(r"^sha256sums=\('[^']+'\)$", f"sha256sums=('{digest.hexdigest()}')", text, count=1, flags=re.MULTILINE)
           pkgbuild.write_text(text)
+          srcinfo = Path('.SRCINFO')
+          srcinfo_text = srcinfo.read_text()
+          srcinfo_text = re.sub(r'^pkgver = [^\n]+$', f'pkgver = {version}', srcinfo_text, count=1, flags=re.MULTILINE)
+          srcinfo_text = re.sub(r'^pkgrel = [^\n]+$', f'pkgrel = {new_rel}', srcinfo_text, count=1, flags=re.MULTILINE)
+          srcinfo_text = re.sub(r'^source = [^\n]+$', f'source = ZCode-{version}-linux-x64.deb::https://cdn-zcode.z.ai/zcode/electron/releases/{version}/linux-x64/ZCode-{version}-linux-x64.deb', srcinfo_text, count=1, flags=re.MULTILINE)
+          srcinfo_text = re.sub(r'^sha256sums = [^\n]+$', f'sha256sums = {digest.hexdigest()}', srcinfo_text, count=1, flags=re.MULTILINE)
+          srcinfo.write_text(srcinfo_text)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'updated=true\nversion={version}\nurl={url}\n')
           print(f'Updated ZCode to {version}-{new_rel}: {url}')
