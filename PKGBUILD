@@ -1,6 +1,6 @@
 # Maintainer: Z.ai community package maintainers
 pkgname=zcode
-pkgver=3.12.3
+pkgver=3.14.0
 pkgrel=1
 pkgdesc='ZCode Desktop App'
 arch=('x86_64')
@@ -10,7 +10,7 @@ depends=('gtk3' 'libnotify' 'nss' 'libxss' 'libxtst' 'xdg-utils' 'at-spi2-core' 
 optdepends=('libappindicator-gtk3: system tray indicator support')
 options=('!strip')
 source=("ZCode-${pkgver}-linux-x64.deb::https://cdn-zcode.z.ai/zcode/electron/releases/${pkgver}/linux-x64/ZCode-${pkgver}-linux-x64.deb")
-sha256sums=('631fbd69fcefe5d57c607bbfd047bb7a474af6017464681b99ccb7b15749c60e')
+sha256sums=('ad1c7f76d40967de74d6a8738bb7a941ed350b78c4339daecff1c9942112842a')
 
 package() {
     local deb="${srcdir}/ZCode-${pkgver}-linux-x64.deb"
