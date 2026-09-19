@@ -24,10 +24,11 @@ jobs:
           import hashlib
           import os
           import re
+          import time
           import urllib.request
           from pathlib import Path
 
-          page_url = 'https://zcode.z.ai/en'
+          page_url = f'https://zcode.z.ai/en?zcode_update={int(time.time())}'
           page = urllib.request.urlopen(page_url, timeout=30).read().decode('utf-8', 'replace')
           pattern = re.compile(
               r'(?:https://cdn-zcode\.z\.ai)?/zcode/electron/releases/'
