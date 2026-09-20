@@ -26,6 +26,7 @@ jobs:
           import re
           import time
           import urllib.request
+          import urllib.error
           from pathlib import Path
 
           page_url = f'https://zcode.z.ai/en?zcode_update={int(time.time())}'
@@ -40,18 +41,6 @@ jobs:
               for match in pattern.finditer(page)
               if match.group('name') == f"ZCode-{match.group('version')}-linux-x64.deb"
           }
-          if not releases:
-              raise SystemExit('No Linux x86_64 ZCode download found on the official website')
-
-          def version_key(item):
-              return tuple(int(part) for part in item[0].split('.'))
-
-          version, name = max(releases, key=version_key)
-          url = f'https://cdn-zcode.z.ai/zcode/electron/releases/{version}/linux-x64/{name}'
-          digest = hashlib.sha256()
-          with urllib.request.urlopen(url, timeout=60) as response:
-              while chunk := response.read(1024 * 1024):
-                  digest.update(chunk)
 
           pkgbuild = Path('PKGBUILD')
           text = pkgbuild.read_text()
@@ -61,8 +50,36 @@ jobs:
           current = current_match.group(1)
           current_hash = current_hash_match.group(1)
           current_rel = int(current_rel_match.group(1))
+
+          def version_key(item):
+              return tuple(int(part) for part in item[0].split('.'))
+
+          current_key = version_key((current, ''))
+          major, minor, patch = current_key
+          for minor_offset in range(4):
+              candidate_minor = minor + minor_offset
+              first_patch = patch + 1 if minor_offset == 0 else 0
+              for candidate_patch in range(first_patch, first_patch + 20):
+                  candidate = f'{major}.{candidate_minor}.{candidate_patch}'
+                  candidate_name = f'ZCode-{candidate}-linux-x64.deb'
+                  candidate_url = f'https://cdn-zcode.z.ai/zcode/electron/releases/{candidate}/linux-x64/{candidate_name}'
+                  try:
+                      urllib.request.urlopen(urllib.request.Request(candidate_url, method='HEAD'), timeout=10).close()
+                  except (urllib.error.HTTPError, urllib.error.URLError):
+                      continue
+                  releases.add((candidate, candidate_name))
+
+          if not releases:
+              raise SystemExit('No Linux x86_64 ZCode download found on the official website or CDN')
+
+          version, name = max(releases, key=version_key)
+          url = f'https://cdn-zcode.z.ai/zcode/electron/releases/{version}/linux-x64/{name}'
+          digest = hashlib.sha256()
+          with urllib.request.urlopen(url, timeout=60) as response:
+              while chunk := response.read(1024 * 1024):
+                  digest.update(chunk)
+
           release_key = version_key((version, name))
-          current_key = version_key((current, name))
           if release_key < current_key or (release_key == current_key and digest.hexdigest() == current_hash):
               print(f'Current release {current} is up to date')
               raise SystemExit(0)
