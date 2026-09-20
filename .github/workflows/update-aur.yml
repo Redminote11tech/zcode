@@ -52,6 +52,7 @@ jobs:
               return tuple(int(part) for part in version.split('.'))
 
           releases = set()
+          releases.add(current)
           page_url = f'https://zcode.z.ai/en?zcode_update={int(time.time())}'
           page = urllib.request.urlopen(page_url, timeout=30).read().decode('utf-8', 'replace')
           pattern = re.compile(r'/zcode/electron/releases/(?P<version>[0-9]+\.[0-9]+\.[0-9]+)/linux-x64/ZCode-[^"\'<> ]+-linux-x64\.deb')
