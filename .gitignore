@@ -13,6 +13,3 @@ debian-binary
 # Previously extracted vendor payload
 /opt/
 /usr/
-# Local maintainer signing material
-.maintainer-gnupg/
-.zcode-signing-passphrase
