@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           pacman -Syu --noconfirm --needed \
-            git ca-certificates \
+            git ca-certificates gnupg \
             gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core \
             util-linux-libs libsecret
           useradd --create-home builder
@@ -30,11 +30,26 @@ jobs:
         run: |
           runuser -u builder -- makepkg --syncdeps --noconfirm --cleanbuild --clean
 
+      - name: Sign package
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          ZCODE_GPG_PRIVATE_KEY: ${{ secrets.ZCODE_GPG_PRIVATE_KEY }}
+        run: |
+          test -n "$ZCODE_GPG_PRIVATE_KEY"
+          printf '%s\n' "$ZCODE_GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --yes \
+            --local-user D6B0BCF696FB823671E891B01F59A4AF744CBD92 \
+            --detach-sign ./*.pkg.tar.zst
+
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: zcode-x86_64-package
-          path: '*.pkg.tar.zst'
+          path: |
+            *.pkg.tar.zst
+            *.pkg.tar.zst.sig
           if-no-files-found: error
 
   release:
@@ -55,4 +70,4 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" ./*.pkg.tar.zst --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" ./*.pkg.tar.zst ./*.pkg.tar.zst.sig zcode-maintainer-public.asc --generate-notes --verify-tag
